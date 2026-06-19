@@ -23,6 +23,7 @@ spec:
         - name: omnigent-server
           image: quay.io/aicatalyst/omnigent-server:latest
           imagePullPolicy: Always
+          command: ["/opt/venv/bin/python", "/app/entrypoint.py"]
           ports:
             - containerPort: 8000
               protocol: TCP

@@ -1,5 +1,5 @@
 # Omnigent UBI server-only image (AutoPoC variant).
-# Removes the 'host' stage to avoid tmux dependency issues on UBI9.
+# Uses editable install with /build available in runtime.
 
 ARG PYTHON_VERSION=3.12
 ARG NODE_VERSION=20
@@ -43,6 +43,7 @@ RUN python -m venv /opt/venv
 ENV VIRTUAL_ENV=/opt/venv \
     PATH="/opt/venv/bin:${PATH}"
 
+# Editable install - source remains at /build
 RUN uv pip install --no-cache-dir --index-url ${PYPI_INDEX_URL} -e .
 
 # -- Server builder --
@@ -50,6 +51,7 @@ FROM builder AS server-builder
 
 ARG PYPI_INDEX_URL=https://pypi.org/simple
 
+# Copy web UI into the source tree (which IS the installed package location)
 COPY --from=web-builder /web/omnigent/server/static/web-ui ./omnigent/server/static/web-ui
 RUN test -f ./omnigent/server/static/web-ui/index.html \
     || (echo "ERROR: SPA bundle missing after web-builder stage." && exit 1)
@@ -65,6 +67,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 USER 0
 
+# MUST copy both venv AND /build since editable install points to /build
 COPY --from=server-builder /opt/venv /opt/venv
 COPY --from=server-builder /build /build
 COPY deploy/docker/entrypoint.py /app/entrypoint.py
