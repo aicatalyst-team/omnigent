@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: omnigent-server
+  namespace: poc-omnigent
+  labels:
+    app: omnigent-server
+    app.kubernetes.io/managed-by: autopoc
+    autopoc.io/project: omnigent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: omnigent-server
+  template:
+    metadata:
+      labels:
+        app: omnigent-server
+        app.kubernetes.io/managed-by: autopoc
+        autopoc.io/project: omnigent
+    spec:
+      containers:
+        - name: omnigent-server
+          image: quay.io/aicatalyst/omnigent-server:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: omnigent-config
+            - secretRef:
+                name: omnigent-secrets
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          volumeMounts:
+            - name: omnigent-artifacts
+              mountPath: /data
+      volumes:
+        - name: omnigent-artifacts
+          persistentVolumeClaim:
+            claimName: omnigent-artifacts

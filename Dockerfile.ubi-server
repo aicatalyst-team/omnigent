@@ -1,0 +1,89 @@
+# Omnigent UBI server-only image (AutoPoC variant).
+# Removes the 'host' stage to avoid tmux dependency issues on UBI9.
+
+ARG PYTHON_VERSION=3.12
+ARG NODE_VERSION=20
+
+# -- Web UI builder --
+FROM registry.access.redhat.com/ubi9/nodejs-${NODE_VERSION} AS web-builder
+ARG NPM_CONFIG_REGISTRY=
+ENV NPM_CONFIG_REGISTRY=${NPM_CONFIG_REGISTRY}
+
+USER 0
+WORKDIR /web/ap-web
+COPY ap-web/package.json ap-web/package-lock.json ./
+RUN npm install --no-audit --no-fund
+COPY ap-web/ ./
+RUN npm run build
+
+# -- Python builder --
+FROM registry.access.redhat.com/ubi9/python-312 AS builder
+
+ARG PYPI_INDEX_URL=https://pypi.org/simple
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+USER 0
+
+RUN dnf install -y --nodocs gcc gcc-c++ make python3-devel \
+ && dnf clean all
+
+RUN pip install --index-url ${PYPI_INDEX_URL} --no-cache-dir uv
+
+WORKDIR /build
+
+COPY pyproject.toml setup.py ./
+COPY LICENSE NOTICE ./
+COPY sdks/ ./sdks/
+COPY omnigent/ ./omnigent/
+COPY examples/ ./examples/
+
+RUN python -m venv /opt/venv
+ENV VIRTUAL_ENV=/opt/venv \
+    PATH="/opt/venv/bin:${PATH}"
+
+RUN uv pip install --no-cache-dir --index-url ${PYPI_INDEX_URL} -e .
+
+# -- Server builder --
+FROM builder AS server-builder
+
+ARG PYPI_INDEX_URL=https://pypi.org/simple
+
+COPY --from=web-builder /web/omnigent/server/static/web-ui ./omnigent/server/static/web-ui
+RUN test -f ./omnigent/server/static/web-ui/index.html \
+    || (echo "ERROR: SPA bundle missing after web-builder stage." && exit 1)
+
+RUN uv pip install --no-cache-dir --index-url ${PYPI_INDEX_URL} 'psycopg[binary]>=3.1,<4'
+
+# -- Server runtime (final stage) --
+FROM registry.access.redhat.com/ubi9/python-312
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/opt/venv/bin:${PATH}"
+
+USER 0
+
+COPY --from=server-builder /opt/venv /opt/venv
+COPY --from=server-builder /build /build
+COPY deploy/docker/entrypoint.py /app/entrypoint.py
+
+WORKDIR /app
+
+RUN mkdir -p /data/artifacts \
+ && chown -R 1001:0 /data \
+ && chmod -R g=u /data
+
+ENV PORT=8000 \
+    HOST=0.0.0.0 \
+    ARTIFACT_DIR=/data/artifacts
+
+EXPOSE 8000
+
+USER 1001
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD curl -fsS "http://127.0.0.1:${PORT}/health" || exit 1
+
+CMD ["python", "/app/entrypoint.py"]

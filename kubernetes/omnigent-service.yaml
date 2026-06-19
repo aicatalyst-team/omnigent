@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: omnigent-server
+  namespace: poc-omnigent
+  labels:
+    app: omnigent-server
+    app.kubernetes.io/managed-by: autopoc
+    autopoc.io/project: omnigent
+spec:
+  type: ClusterIP
+  selector:
+    app: omnigent-server
+  ports:
+    - port: 8000
+      targetPort: 8000
+      protocol: TCP
