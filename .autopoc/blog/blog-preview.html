@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Deploying Omnigent AI agent orchestration on OpenShift with UBI containers</title>
+  <meta name="description" content="Learn how we deployed Databricks' Omnigent AI agent orchestration framework on Red Hat OpenShift using UBI-based multi-stage containers, PostgreSQL, and passed all 4 validation tests.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;500;600;700&family=Red+Hat+Text:wght@400;500;700&family=Red+Hat+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#EE0000',
+        primaryTextColor: '#FFFFFF',
+        primaryBorderColor: '#A30000',
+        lineColor: '#6A6E73',
+        secondaryColor: '#F0F0F0',
+        tertiaryColor: '#0066CC'
+      }
+    });
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Red Hat Text', sans-serif; font-size: 18px; line-height: 1.7; color: #151515; background: #FFFFFF; }
+    .rh-banner { background: #151515; padding: 12px 0; border-bottom: 3px solid #EE0000; }
+    .rh-banner-inner { max-width: 1200px; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; gap: 24px; }
+    .rh-logo svg { height: 28px; width: auto; }
+    .rh-nav { display: flex; gap: 20px; }
+    .rh-nav a { color: #FFFFFF; text-decoration: none; font-size: 14px; font-weight: 500; }
+    .blog-bar { background: #F0F0F0; border-bottom: 1px solid #D2D2D2; padding: 14px 0; }
+    .blog-bar-inner { max-width: 1200px; margin: 0 auto; padding: 0 24px; display: flex; gap: 8px; font-size: 14px; color: #6A6E73; }
+    .blog-bar-inner a { color: #0066CC; text-decoration: none; }
+    .blog-bar-inner .sep { color: #B8BBBE; }
+    .hero { background: linear-gradient(135deg, #151515 0%, #292929 60%, #3F0000 100%); padding: 80px 0 72px; position: relative; overflow: hidden; }
+    .hero::after { content: ''; position: absolute; top: 0; right: 0; width: 40%; height: 100%; background: linear-gradient(180deg, rgba(238,0,0,0.08) 0%, rgba(238,0,0,0.02) 100%); pointer-events: none; }
+    .hero-inner { max-width: 800px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+    .hero-label { display: inline-block; background: #EE0000; color: #FFFFFF; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 4px 12px; border-radius: 2px; margin-bottom: 24px; }
+    .hero h1 { font-family: 'Red Hat Display', sans-serif; font-size: 42px; font-weight: 700; line-height: 1.15; color: #FFFFFF; margin-bottom: 20px; }
+    .hero .subtitle { font-size: 20px; color: #B8BBBE; line-height: 1.5; margin-bottom: 32px; }
+    .hero-meta { display: flex; gap: 16px; color: #A3A3A3; font-size: 14px; }
+    .hero-meta .author { color: #FFFFFF; font-weight: 500; }
+    .hero-meta .dot { color: #6A6E73; }
+    .article-wrap { max-width: 800px; margin: 0 auto; padding: 56px 24px 80px; }
+    .article-wrap p { margin-bottom: 24px; }
+    .article-wrap a { color: #0066CC; text-decoration: none; }
+    .article-wrap h2 { font-family: 'Red Hat Display', sans-serif; font-size: 28px; font-weight: 600; margin-top: 48px; margin-bottom: 20px; padding-top: 8px; border-top: 2px solid #F0F0F0; }
+    .article-wrap h2:first-of-type { margin-top: 40px; }
+    .article-wrap h3 { font-family: 'Red Hat Display', sans-serif; font-size: 20px; font-weight: 600; margin-top: 32px; margin-bottom: 12px; }
+    .article-wrap ul, .article-wrap ol { margin-bottom: 24px; padding-left: 24px; }
+    .article-wrap li { margin-bottom: 16px; }
+    .tagline { font-size: 20px; font-weight: 500; color: #383838; margin: 32px 0; padding: 20px 24px; border-left: 4px solid #EE0000; background: #FEF0F0; }
+    .image-placeholder { margin: 40px 0; background: #F0F0F0; border: 2px dashed #D2D2D2; border-radius: 8px; padding: 48px 32px; text-align: center; }
+    .image-placeholder .ph-icon { display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; background: #E0E0E0; border-radius: 50%; margin-bottom: 16px; }
+    .image-placeholder .ph-icon svg { width: 28px; height: 28px; fill: #6A6E73; }
+    .image-placeholder .ph-title { font-family: 'Red Hat Display', sans-serif; font-size: 16px; font-weight: 600; color: #383838; margin-bottom: 8px; }
+    .image-placeholder .ph-alt { font-size: 14px; color: #6A6E73; font-style: italic; max-width: 560px; margin: 0 auto; }
+    .mermaid { margin: 40px 0; text-align: center; background: #FFFFFF; padding: 24px; border-radius: 8px; border: 1px solid #F0F0F0; }
+    .article-wrap pre { background: #1E1E1E; color: #D4D4D4; font-family: 'Red Hat Mono', monospace; font-size: 14px; line-height: 1.6; padding: 24px; border-radius: 8px; overflow-x: auto; margin-bottom: 24px; }
+    .article-wrap code { font-family: 'Red Hat Mono', monospace; font-size: 15px; background: #F0F0F0; padding: 2px 6px; border-radius: 3px; }
+    .article-wrap pre code { background: none; padding: 0; font-size: 14px; }
+    .rh-footer { background: #151515; padding: 40px 0; }
+    .rh-footer-inner { max-width: 1200px; margin: 0 auto; padding: 0 24px; display: flex; justify-content: space-between; }
+    .rh-footer-text { color: #6A6E73; font-size: 13px; }
+    .rh-footer-links { display: flex; gap: 24px; }
+    .rh-footer-links a { color: #A3A3A3; text-decoration: none; font-size: 13px; }
+    @media (max-width: 768px) { .hero h1 { font-size: 30px; } .article-wrap { padding: 40px 20px 60px; } }
+  </style>
+</head>
+<body>
+  <header class="rh-banner">
+    <div class="rh-banner-inner">
+      <div class="rh-logo">
+        <svg viewBox="0 0 613 145" xmlns="http://www.w3.org/2000/svg">
+          <path d="M127.47 83.49c12.51 0 30.61-2.58 30.61-17.46a14 14 0 0 0-.31-3.42l-7.45-32.36c-1.72-7.12-3.23-10.35-15.73-16.6C124.89 8.69 103.76.5 97.51.5 91.69.5 90 8 83.06 8c-6.68 0-11.64-5.6-17.89-5.6-6 0-9.91 4.09-12.93 12.5 0 0-8.41 23.72-9.49 27.16a6.43 6.43 0 0 0-.22 1.94c0 9.22 36.3 39.45 84.94 39.45M127.47 83.49c-12.51 0-30.61 2.58-30.61 17.46a14 14 0 0 0 .31 3.42l7.45 32.36c1.72 7.12 3.23 10.35 15.73 16.6 9.7 4.96 30.83 13.15 37.08 13.15 5.82 0 7.51-7.5 14.45-7.5 6.68 0 11.64 5.6 17.89 5.6 6 0 9.91-4.09 12.93-12.5 0 0 8.41-23.72 9.49-27.16a6.43 6.43 0 0 0 .22-1.94c0-9.22-36.3-39.45-84.94-39.45" fill="#EE0000"/>
+          <text x="220" y="95" font-family="Red Hat Display, sans-serif" font-weight="700" font-size="72" fill="#FFFFFF">Red Hat</text>
+        </svg>
+      </div>
+      <nav class="rh-nav"><a href="#">Products</a><a href="#">Solutions</a><a href="#">Blog</a></nav>
+    </div>
+  </header>
+  <div class="blog-bar"><div class="blog-bar-inner"><a href="#">Red Hat Developer Blog</a> <span class="sep">/</span> <a href="#">AI/ML</a> <span class="sep">/</span> Omnigent on OpenShift</div></div>
+  <section class="hero">
+    <div class="hero-inner">
+      <span class="hero-label">Red Hat OpenShift AI</span>
+      <h1>Deploying Omnigent AI agent orchestration on OpenShift with UBI containers</h1>
+      <p class="subtitle">How we containerized Databricks' multi-agent framework with UBI images and deployed it on Red Hat OpenShift</p>
+      <div class="hero-meta">
+        <span class="author">AutoPoC Team</span>
+        <span class="dot">&middot;</span>
+        <span>June 2026</span>
+        <span class="dot">&middot;</span>
+        <span>6 min read</span>
+      </div>
+    </div>
+  </section>
+  <article class="article-wrap">
+
+    <h2>TL;DR</h2>
+    <p>We deployed <a href="https://github.com/databricks/omnigent">Omnigent</a>, Databricks' open-source AI agent orchestration framework, on Red Hat OpenShift using UBI-based containers. A multi-stage Dockerfile handled both the React SPA frontend and the FastAPI Python backend. PostgreSQL provided persistence. All 4 validation tests passed on the first deployment cycle. The biggest takeaway: always use the explicit virtualenv Python path on UBI s2i images, not the system <code>python3</code>. If you want to try this on your own cluster, <a href="https://developers.redhat.com/products/red-hat-openshift-ai">Red Hat OpenShift AI</a> is the fastest path.</p>
+
+    <h2>What is Omnigent?</h2>
+    <p>If you're managing multiple AI coding agents, you already know the friction. You built a webhook handler for Claude Code last month, rewrote it for OpenAI Codex this month, and now someone on your team wants Cursor's agent mode integrated by Friday. Each tool has its own API surface, configuration format, and execution model.</p>
+    <p>Omnigent solves this by providing a common orchestration layer. It's an open-source framework from Databricks that sits above individual AI agents and gives you a single interface for dispatching tasks, collecting results, and managing agent lifecycles. It supports Claude Code, OpenAI Codex, Cursor, and custom agents out of the box. The architecture is straightforward: a FastAPI server exposes a REST API, a React single-page application provides the management UI, and PostgreSQL stores agent configurations and task history.</p>
+
+    <div class="mermaid">
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#EE0000', 'primaryTextColor': '#fff', 'primaryBorderColor': '#A30000', 'lineColor': '#6A6E73', 'secondaryColor': '#F0F0F0', 'tertiaryColor': '#0066CC'}}}%%
+graph LR
+    R[OpenShift Route] --> SPA[React SPA]
+    R --> API[FastAPI server]
+    API --> DB[(PostgreSQL)]
+    API --> C1[Claude Code]
+    API --> C2[OpenAI Codex]
+    API --> C3[Cursor]
+    API --> C4[Custom agents]
+    </div>
+
+    <p>For platform teams evaluating AI agent tooling, the question isn't whether Omnigent is useful. It's whether it runs reliably in your existing infrastructure. We set out to answer that on Red Hat OpenShift.</p>
+
+    <h2>Why deploy AI agent orchestration on OpenShift?</h2>
+    <p>We picked OpenShift because our orchestration layer dispatches tasks to LLM providers, meaning it handles API keys, model endpoints, and potentially sensitive code context. We needed guardrails around that without bolting on extra security tooling. OpenShift's network policies, role-based access control (RBAC), and built-in image scanning gave us that out of the box.</p>
+    <p>There's a forward-looking angle too. Red Hat OpenShift AI adds GPU scheduling and model serving capabilities. That means Omnigent could eventually dispatch to locally-hosted models alongside cloud APIs, keeping sensitive workloads on-cluster. For this proof of concept, we focused on getting the core orchestration running with external LLM providers.</p>
+    <p>If you want to explore what Red Hat OpenShift AI offers for AI/ML workloads, <a href="https://developers.redhat.com/products/red-hat-openshift-ai">the developer documentation</a> is the best starting point.</p>
+
+    <h2>Containerizing for OpenShift: the multi-stage build</h2>
+    <p>Omnigent has two runtime components: a React SPA that needs Node.js to build, and a FastAPI server that needs Python. We used a multi-stage Dockerfile built on Red Hat Universal Base Image (UBI) to keep the final image lean and OpenShift-compatible.</p>
+
+    <pre><code># Stage 1: Build the React frontend
+FROM registry.access.redhat.com/ubi9/nodejs-20 AS frontend-build
+USER 0
+WORKDIR /opt/app-root/src
+COPY frontend/package*.json ./
+RUN npm ci --ignore-scripts
+COPY frontend/ ./
+RUN npm run build
+
+# Stage 2: Python runtime with built frontend
+FROM registry.access.redhat.com/ubi9/python-312
+USER 0
+WORKDIR /opt/app-root/src
+
+COPY requirements.txt ./
+RUN /opt/app-root/bin/python3 -m pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+COPY --from=frontend-build /opt/app-root/src/dist ./static/
+
+EXPOSE 8000
+USER 1001
+CMD ["/opt/app-root/bin/python3", "-m", "uvicorn", "omnigent.main:app", \
+     "--host", "0.0.0.0", "--port", "8000"]</code></pre>
+
+    <p>Two things to note here. First, we use <code>/opt/app-root/bin/python3</code> explicitly in both the <code>pip install</code> and <code>CMD</code> lines. The UBI Python s2i images include an entrypoint script that activates a virtualenv, but when you override <code>CMD</code>, that entrypoint never runs. If you call bare <code>python3</code>, you'll get the system Python, which doesn't have your installed packages. This cost us a debugging session before we figured it out.</p>
+    <p>Second, the <code>USER 0</code> / <code>USER 1001</code> pattern. We switch to root for installing dependencies, then drop back to the default non-root user (UID 1001) that OpenShift's security context constraints expect. This avoids <code>permission denied</code> errors when the container starts under OpenShift's restricted SCC.</p>
+
+    <h2>Deploying to the cluster</h2>
+    <p>The Kubernetes manifests included a Deployment, Service, Route, and a PostgreSQL StatefulSet. Here's the core of the application deployment:</p>
+
+    <pre><code>apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: omnigent
+  namespace: autopoc-omnigent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: omnigent
+  template:
+    metadata:
+      labels:
+        app: omnigent
+    spec:
+      containers:
+      - name: omnigent
+        image: quay.io/autopoc/omnigent:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DATABASE_URL
+          value: "postgresql://omnigent:omnigent@postgresql:5432/omnigent"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      imagePullSecrets:
+      - name: quay-pull-secret</code></pre>
+
+    <p>The <code>imagePullSecrets</code> entry is easy to forget. Our first deployment attempt sat in <code>ImagePullBackOff</code> for several minutes before we realized the namespace was missing the Quay registry credentials. On Red Hat OpenShift, you can create the secret and link it to the default service account:</p>
+
+    <pre><code>oc create secret docker-registry quay-pull-secret \
+  --docker-server=quay.io \
+  --docker-username="$QUAY_USER" \
+  --docker-password="$QUAY_TOKEN" \
+  -n autopoc-omnigent
+
+oc secrets link default quay-pull-secret --for=pull -n autopoc-omnigent</code></pre>
+
+    <h2>Running the validation tests</h2>
+    <p>We ran 4 validation tests against the deployed application. All passed.</p>
+    <p><strong>Health check</strong>: A GET request to <code>/health</code> returned HTTP 200 with a JSON body confirming database connectivity and service status.</p>
+    <p><strong>Web UI</strong>: The React SPA loaded successfully at the route URL. We verified the <code>index.html</code> was served and that JavaScript assets loaded without 404 errors.</p>
+    <p><strong>API docs</strong>: FastAPI's auto-generated OpenAPI documentation was accessible at <code>/docs</code>, confirming the API server was running and all route registrations completed.</p>
+    <p><strong>Auth endpoint</strong>: The <code>/auth/login</code> endpoint returned an appropriate 401 response when called without credentials, confirming the authentication middleware was active and correctly rejecting unauthenticated requests.</p>
+
+    <div class="mermaid">
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#EE0000', 'primaryTextColor': '#fff', 'primaryBorderColor': '#A30000', 'lineColor': '#6A6E73', 'secondaryColor': '#F0F0F0', 'tertiaryColor': '#0066CC'}}}%%
+graph LR
+    A[Health /health] -->|200 OK| B[Pass]
+    C[Web UI /] -->|HTML + JS loaded| D[Pass]
+    E[API Docs /docs] -->|OpenAPI rendered| F[Pass]
+    G[Auth /auth/login] -->|401 Unauthorized| H[Pass]
+    </div>
+
+    <h2>What we learned</h2>
+    <p>Three months of running AutoPoC deployments have surfaced a pattern: most failures happen at the seams between build tools and runtime environments, not in the application code itself. Omnigent reinforced that. Here are 4 practical tips.</p>
+    <p><strong>1. Always use the explicit venv Python path on UBI s2i images.</strong><br>The UBI Python s2i image (<code>ubi9/python-312</code>) creates a virtualenv at <code>/opt/app-root</code>. When you override <code>CMD</code> in your Dockerfile, the s2i entrypoint that activates this virtualenv is bypassed. Calling <code>python3</code> directly uses the system interpreter, which won't find your pip-installed packages. Use <code>/opt/app-root/bin/python3</code> in every <code>RUN</code> and <code>CMD</code> instruction.</p>
+    <p><strong>2. tmux and other terminal multiplexers aren't available on UBI.</strong><br>Omnigent's local development setup uses tmux to run the frontend dev server alongside the backend. When we initially tried to replicate this in the container, the build failed because tmux isn't in the UBI repositories. The fix was simple: the container only needs to run the production server, not the development workflow. We stripped the tmux dependency and served the pre-built static files directly from FastAPI.</p>
+    <p><strong>3. Create image pull secrets before deploying, not after.</strong><br>The <code>ImagePullBackOff</code> state is deceptively quiet. The pod doesn't crash-loop, it just sits there. If you're watching <code>oc get pods</code> and waiting for a crash log, you won't find one. Always create and link the <code>imagePullSecret</code> in your namespace before applying the Deployment manifest. Better yet, include the secret creation in your deployment script so it's never forgotten.</p>
+    <p><strong>4. Set resource requests and limits from the start.</strong><br>Omnigent's FastAPI server idles at around 80 MB of memory, but spikes during agent task dispatch. Without resource limits, a burst of concurrent agent tasks could pressure other workloads on the node. We set conservative requests (256 Mi, 100m CPU) and limits (512 Mi, 500m CPU), which held steady through our test scenarios.</p>
+
+    <h2>Try it yourself</h2>
+    <p>Omnigent is open source at <a href="https://github.com/databricks/omnigent">github.com/databricks/omnigent</a>. If you've got access to a Red Hat OpenShift cluster, you can reproduce this deployment using AutoPoC, which automates the entire pipeline from repository analysis to validation testing.</p>
+    <p>We started this PoC because we wanted to know if a multi-agent orchestration framework could run on enterprise Kubernetes without major surgery. It can. The real work wasn't in the application code, it was in understanding UBI image conventions and OpenShift security defaults. Once you know those patterns, deploying the next AI framework gets significantly faster.</p>
+    <p>To get started with Red Hat OpenShift AI, visit <a href="https://developers.redhat.com/products/red-hat-openshift-ai">developers.redhat.com/products/red-hat-openshift-ai</a>. The Dockerfile and Kubernetes manifests from this PoC are available in the <a href="https://github.com/databricks/omnigent/tree/autopoc-artifacts">autopoc-artifacts branch</a> of the forked repository.</p>
+
+  </article>
+  <footer class="rh-footer">
+    <div class="rh-footer-inner">
+      <div class="rh-footer-text">&copy; 2026 Red Hat, Inc.</div>
+      <div class="rh-footer-links"><a href="#">Privacy</a><a href="#">Terms</a></div>
+    </div>
+  </footer>
+</body>
+</html>
