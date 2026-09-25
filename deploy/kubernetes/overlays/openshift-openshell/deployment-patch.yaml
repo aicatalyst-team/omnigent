@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: omnigent
+spec:
+  template:
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: omnigent
+      containers:
+        - name: omnigent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          env:
+            - name: OMNIGENT_RUNNER_ENV_PASSTHROUGH
+              value: "HTTP_PROXY,HTTPS_PROXY,ALL_PROXY,NO_PROXY,http_proxy,https_proxy,all_proxy,no_proxy,GH_TOKEN,SELF_HOSTED_API_KEY"
+          volumeMounts:
+            - name: openshell-gateway
+              mountPath: /.config/openshell
+              readOnly: true
+            - name: server-config
+              mountPath: /data/server-config.yaml
+              subPath: config.yaml
+              readOnly: true
+      volumes:
+        - name: openshell-gateway
+          secret:
+            secretName: openshell-gateway-config
+            optional: true
+            items:
+              - key: active_gateway
+                path: active_gateway
+              - key: metadata.json
+                path: gateways/openshellpoc/metadata.json
+        - name: server-config
+          configMap:
+            name: omnigent-server-config

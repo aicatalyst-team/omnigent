@@ -57,6 +57,7 @@ run-omnigents.sh
 # `bootstrap.sh` / `cp .env.example .env`. Only .env.example is tracked.
 .env
 **/.env
+**/secrets.env
 
 # Local server databases — created by ap/omnigents server runs in
 # this directory, should never be committed.
