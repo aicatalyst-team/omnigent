@@ -1,0 +1,48 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: omnigent
+
+resources:
+  - ../../base
+  - route.yaml
+  - server-config.yaml
+  - gateway-networkpolicy.yaml
+  - sandbox-rbac.yaml
+  - sandbox-clusterrole.yaml
+  - sandbox-clusterrolebinding.yaml
+  - postgres-statefulset.yaml
+  - postgres-service.yaml
+
+# Use the server image variant that includes the openshell SDK extra
+# (built by CI with OMNIGENT_EXTRAS=openshell).
+images:
+  - name: ghcr.io/omnigent-ai/omnigent-server
+    newName: quay.io/aicatalyst/omnigent-server-openshell
+    newTag: v0.0.9
+patches:
+  - path: configmap-patch.yaml
+  - path: deployment-patch.yaml
+  - target:
+      kind: Ingress
+      name: omnigent
+    patch: |
+      $patch: delete
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: omnigent
+
+secretGenerator:
+  - name: omnigent-secrets
+    behavior: replace
+    envs:
+      - secrets.env
+    options:
+      disableNameSuffixHash: true
+  - name: openshell-gateway-config
+    literals:
+      - active_gateway=openshellpoc
+      - 'metadata.json={"name":"openshellpoc","gateway_endpoint":"http://openshell.openshell-poc.svc.cluster.local:8080","is_remote":false,"gateway_port":8080,"auth_mode":"plaintext"}'
+    options:
+      disableNameSuffixHash: true
