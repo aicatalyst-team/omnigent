@@ -689,6 +689,23 @@ def test_client_create_sandbox(sdk: _SDKState) -> None:
     assert sdk.waited == ("petname-new", 300)
 
 
+def test_client_create_sandbox_sets_kubernetes_placement(sdk: _SDKState) -> None:
+    """Kubernetes placement is forwarded through the template driver config."""
+    client = _OpenShellClient(
+        node_selector={"kata-install": "true"}, runtime_class="kata-containers"
+    )
+    client.create_sandbox(image="img", env={})
+
+    assert sdk.created_spec.template.driver_config == {
+        "kubernetes": {
+            "pod": {
+                "node_selector": {"kata-install": "true"},
+                "runtime_class_name": "kata-containers",
+            }
+        }
+    }
+
+
 def test_client_create_sandbox_custom_workspace(sdk: _SDKState) -> None:
     """A custom workspace reaches the SDK create call."""
     client = _OpenShellClient(workspace="team-beta")
