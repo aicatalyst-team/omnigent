@@ -182,6 +182,7 @@ class _OpenShellClient:
         *,
         cluster: str | None = None,
         workspace: str = _DEFAULT_WORKSPACE,
+        providers: Sequence[str] = (),
         node_selector: dict[str, str] | None = None,
         runtime_class: str | None = None,
     ) -> None:
@@ -196,6 +197,7 @@ class _OpenShellClient:
                 "`openshell gateway select <name>` (or set OPENSHELL_GATEWAY)."
             ) from exc
         self._workspace = workspace
+        self._providers = tuple(providers)
         self._driver_config = _kubernetes_driver_config(
             node_selector=node_selector, runtime_class=runtime_class
         )
@@ -221,6 +223,7 @@ class _OpenShellClient:
         spec = openshell_pb2.SandboxSpec(
             template=openshell_pb2.SandboxTemplate(**template_kwargs),
             environment=env or {},
+            providers=self._providers,
         )
         ws = self._workspace
         ref = self._guard(
@@ -459,6 +462,7 @@ class OpenShellSandboxLauncher(SandboxLauncher):
         env: Sequence[str] | None = None,
         cluster: str | None = None,
         workspace: str | None = None,
+        providers: Sequence[str] | None = None,
         node_selector: dict[str, str] | None = None,
         runtime_class: str | None = None,
     ) -> None:
@@ -476,6 +480,8 @@ class OpenShellSandboxLauncher(SandboxLauncher):
         :param workspace: OpenShell workspace for sandbox lifecycle
             (``sandbox.openshell.workspace``); ``None`` resolves
             :data:`WORKSPACE_ENV_VAR` then ``"default"``.
+        :param providers: OpenShell credential provider names attached to
+            every created sandbox (``sandbox.openshell.providers``).
         :param node_selector: Kubernetes node labels required for the
             sandbox pod (``sandbox.openshell.node_selector``).
         :param runtime_class: Kubernetes runtime class for the sandbox pod
@@ -486,6 +492,7 @@ class OpenShellSandboxLauncher(SandboxLauncher):
         self._env_names = tuple(env) if env is not None else None
         self._cluster = cluster
         self._workspace = workspace or os.environ.get(WORKSPACE_ENV_VAR) or _DEFAULT_WORKSPACE
+        self._providers = tuple(providers or ())
         self._node_selector = dict(node_selector) if node_selector is not None else None
         self._runtime_class = runtime_class
         self._client: _OpenShellClient | None = None
@@ -647,6 +654,7 @@ class OpenShellSandboxLauncher(SandboxLauncher):
             self._client = _OpenShellClient(
                 cluster=self._cluster,
                 workspace=self._workspace,
+                providers=self._providers,
                 node_selector=self._node_selector,
                 runtime_class=self._runtime_class,
             )
