@@ -19,20 +19,21 @@ data:
         terminate_after_offline_days: 1
         sweep_interval_s: 3600
       openshell:
-        node_selector:
-          kata-install: "true"
+        providers:
+        - sean-codex
+        - sean-github
+        - sean-litemaas
+        - sean-antigravity
+        # node_selector:
+        #   kata-install: "true"
         # runtime_class: kata
         # Sandbox image built for OpenShell's non-root contract.
         # Build with: docker build -t omnigent-host-openshell:latest \
         #               -f deploy/docker/Dockerfile.openshell .
-        image: quay.io/aicatalyst/omnigent-host-openshell:v0.1.3
+        image: quay.io/aicatalyst/omnigent-host-openshell:v0.1.18
         # SERVER env var NAMES whose values are injected into sandboxes
         # at provision time — this is how LLM keys reach the sandbox.
         env:
-          - OPENAI_API_KEY
-          - GEMINI_API_KEY
-          - GH_TOKEN
-          - SELF_HOSTED_API_KEY
           - OMNIGENT_RUNNER_ENV_PASSTHROUGH
         # Gateway name resolved by the SDK's from_active_cluster(); omit
         # to use the active gateway from ~/.config/openshell/active_gateway.
