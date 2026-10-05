@@ -19,7 +19,7 @@ resources:
 images:
   - name: ghcr.io/omnigent-ai/omnigent-server
     newName: quay.io/aicatalyst/omnigent-server-openshell
-    newTag: v0.0.9
+    newTag: v0.0.14
 patches:
   - path: configmap-patch.yaml
   - path: deployment-patch.yaml
