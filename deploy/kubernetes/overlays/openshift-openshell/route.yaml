@@ -7,7 +7,7 @@ metadata:
   annotations:
     haproxy.router.openshift.io/timeout: 5m
 spec:
-  host: omnigent.apps.ocp-gb.ibm.redhataicatalyst.com
+  host: omnigent.apps.evals.aipcc-gpuaas.com
   to:
     kind: Service
     name: omnigent

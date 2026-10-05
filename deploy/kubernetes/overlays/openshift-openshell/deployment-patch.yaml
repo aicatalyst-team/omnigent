@@ -19,7 +19,7 @@ spec:
               type: RuntimeDefault
           env:
             - name: OMNIGENT_RUNNER_ENV_PASSTHROUGH
-              value: "HTTP_PROXY,HTTPS_PROXY,ALL_PROXY,NO_PROXY,http_proxy,https_proxy,all_proxy,no_proxy,GH_TOKEN,SELF_HOSTED_API_KEY"
+              value: "HTTP_PROXY,HTTPS_PROXY,ALL_PROXY,NO_PROXY,http_proxy,https_proxy,all_proxy,no_proxy,LITEMAAS_API_KEY,GH_TOKEN,SSL_CERT_FILE,NODE_EXTRA_CA_CERTS"
           volumeMounts:
             - name: openshell-gateway
               mountPath: /.config/openshell
