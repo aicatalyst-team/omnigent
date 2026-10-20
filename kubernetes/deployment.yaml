@@ -16,10 +16,12 @@ spec:
       labels:
         app: omnigent
     spec:
-      # fsGroup makes the /data emptyDir group-writable so the random-UID
-      # container (group 0) can create the SQLite DB and artifact files.
+      # fsGroup = namespace GID-range start (1001480000/10000) makes the /data
+      # emptyDir group-writable so the random-UID container can create the
+      # SQLite DB and artifact files. hostUsers:false is required by restricted-v3.
       securityContext:
-        fsGroup: 0
+        fsGroup: 1001480000
+        hostUsers: false
       imagePullSecrets:
         - name: quay-pull
       containers:
@@ -68,6 +70,7 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 3
           securityContext:
+            runAsNonRoot: true
             allowPrivilegeEscalation: false
             capabilities:
               drop:
