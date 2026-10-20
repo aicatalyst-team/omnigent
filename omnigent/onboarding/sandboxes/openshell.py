@@ -85,6 +85,8 @@ operations (create, get, delete, wait_ready). Defaults to ``"default"``."""
 
 _DEFAULT_WORKSPACE: str = "default"
 
+
+
 # Upload chunk size. The gateway rejects a gRPC message whose decoded size
 # exceeds 1 MiB; stay well under it to leave room for framing overhead.
 _PUT_CHUNK_BYTES = 512 * 1024
@@ -153,7 +155,7 @@ class _OpenShellClient:
     """Thin wrapper over the ``openshell`` gRPC SandboxClient.
 
     Owns the launcher's contact with the SDK: it builds the create
-    spec, maps the public sandbox name back to the id ``exec`` needs,
+    spec, passes the public sandbox name and workspace to SDK calls,
     and translates SDK / gRPC errors into ``click.ClickException`` so
     the launcher surface stays clean.
     """
@@ -201,8 +203,6 @@ class _OpenShellClient:
         self._driver_config = _kubernetes_driver_config(
             node_selector=node_selector, runtime_class=runtime_class
         )
-        # Petname (public handle) -> opaque sandbox id, which exec needs.
-        self._ids: dict[str, str] = {}
         # Daemon threads holding long-lived exec streams open (see
         # exec_background): OpenShell kills an exec's processes when the
         # ExecSandbox RPC returns, so a backgrounded host must be kept on
@@ -252,6 +252,7 @@ class _OpenShellClient:
         return self._guard(
             f"Remote command failed on OpenShell sandbox '{name}'",
             lambda: self._client.exec(
+                name,
                 name,
                 command,
                 workspace=ws,
@@ -310,6 +311,7 @@ class _OpenShellClient:
         def _pump() -> None:
             try:
                 for _ in self._client.exec_stream(
+                    name,
                     name,
                     command,
                     workspace=ws,
