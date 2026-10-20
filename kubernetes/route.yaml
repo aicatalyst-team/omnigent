@@ -1,0 +1,18 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: omnigent
+  namespace: poc-omnigent
+  labels:
+    app: omnigent
+    autopoc.io/project: omnigent
+spec:
+  to:
+    kind: Service
+    name: omnigent
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
