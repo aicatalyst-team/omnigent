@@ -1,0 +1,87 @@
+# AutoPoC build-context trim (extends deploy/docker/Dockerfile.dockerignore).
+#
+# Dockerfile.ubi COPYs (relative to the repo root = build context):
+#   pnpm-workspace.yaml, pnpm-lock.yaml, patches/, web/,
+#   pyproject.toml, setup.py, LICENSE, NOTICE, sdks/, omnigent/, examples/,
+#   deploy/docker/entrypoint.py, deploy/docker/install-harness-cli.sh
+# Everything below is excluded to keep the OpenShift binary-build upload small.
+
+# VCS + IDE
+.git
+.gitignore
+.github
+.vscode
+.idea
+
+# Python build outputs
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# Node build outputs (keep host node_modules from overlaying the container's)
+node_modules/
+.pnpm-store/
+.pnpm-debug.log*
+
+# Test + dev + docs artifacts (not COPYed by the Dockerfile)
+tests/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.log
+docs/
+dev/
+designs/
+feature-map/
+integrations/
+editors/
+loadtest/
+demos/
+scripts/
+skills/
+.claude/
+TODO.md
+AGENTS.md
+CLAUDE.md
+openapi.json
+
+# Local databases / large blobs
+*.db
+*.sqlite
+mlflow.db
+
+# AutoPoC artifacts
+.autopoc/
+poc-plan.md
+poc-report.md
+poc_test.py
+
+# deploy/ subdirs other than docker/ (the OSS Docker entrypoint IS kept)
+deploy/blaxel/
+deploy/boxlite/
+deploy/cloudflare/
+deploy/cockroachdb/
+deploy/cwsandbox/
+deploy/databricks/
+deploy/daytona/
+deploy/e2b/
+deploy/fly/
+deploy/gensee/
+deploy/hf-spaces/
+deploy/islo/
+deploy/kubernetes/
+deploy/microsandbox/
+deploy/modal/
+deploy/openshell/
+deploy/railway/
+deploy/render/
+deploy/tailscale/
+deploy/README.md
