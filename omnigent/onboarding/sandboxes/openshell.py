@@ -253,7 +253,6 @@ class _OpenShellClient:
             f"Remote command failed on OpenShell sandbox '{name}'",
             lambda: self._client.exec(
                 name,
-                name,
                 command,
                 workspace=ws,
                 stdin=stdin,
@@ -311,7 +310,6 @@ class _OpenShellClient:
         def _pump() -> None:
             try:
                 for _ in self._client.exec_stream(
-                    name,
                     name,
                     command,
                     workspace=ws,
