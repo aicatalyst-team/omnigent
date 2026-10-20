@@ -2,15 +2,15 @@
 
 Most agent tooling dies when the laptop closes. It lives in a developer's
 terminal, tied to a single machine and a single login, and it vanishes the
-moment you step away. Omnigent attacks that gap. It is an open-source
+moment you step away. Omnigent attacks that gap. It is an open source
 "meta-harness" that puts a common orchestration layer over the AI coding agents
-you already use, and it ships a real server you can point a browser, a phone,
-or a whole team at.
+you already use, and it ships a real server you can point a browser,
+a mobile phone, or a whole team at.
 
 Concretely, Omnigent lets you supervise Claude Code, Codex, Cursor, OpenCode,
 Hermes, Pi, and agents you define yourself in extensible markup language (YAML),
 all from the same session. Its server coordinates those sessions, enforces
-policies such as approval gates and spend caps, and serves a web user interface
+policies such as approval gates and budget caps, and serves a web user interface
 (UI). The server is the coordination point; the actual agent work runs on hosts
 that register with it, so the server stays light and the heavy lifting happens
 wherever you point it.
@@ -51,7 +51,7 @@ throwaway demo, it behaves like a platform workload: something you host, scale,
 and govern. That lines up with the agentic AI direction in Red Hat AI, where
 teams want agents they can run as governed workloads, not just execute locally.
 
-Proving that an orchestration layer like this deploys cleanly on OpenShift
+Proving that an orchestration layer of this kind deploys cleanly on OpenShift
 shows that rich agent control planes can sit alongside the model serving and
 customization story. The natural next step is pointing its large language model
 (LLM) gateway at an in-cluster inference endpoint, which we left as a follow-on
@@ -62,7 +62,7 @@ that deployment looks like and what it took to get there.
 
 We started from the upstream repository and mapped its structure. It is a
 monorepo with a Python server, a React web UI, a Python software development
-kit (SDK), and a VS Code editor. For the proof of concept (PoC) we isolated the
+kit (SDK), and a Visual Studio Code editor. For the proof of concept (PoC) we isolated the
 single deployable unit, the server, which bundles the web UI into its image and
 listens on port 8000.
 
@@ -130,8 +130,8 @@ Security (TLS). The server keeps its SQLite database and artifact files on an
 
 Getting the pod to start surfaced a real OpenShift detail. The namespace runs
 the `restricted-v3` security context constraint, which rejects `fsGroup: 0` and
-requires `hostUsers: false`. The security context that finally worked looked
-like this:
+requires `hostUsers: false`. The security context that finally worked is shown
+below:
 
 ```yaml
 securityContext:
@@ -166,8 +166,8 @@ an emptyDir volume and config injection.*
 
 ## Running the PoC tests
 
-We wrote a small Python test script using only the standard library and pointed
-it at the Route. It exercised 5 pre-auth endpoints, which is enough to prove the
+We wrote a small Python test script that uses only the standard library and
+pointed it at the Route. It exercised 5 pre-auth endpoints, which is enough to prove the
 deployment is healthy without walking a full login flow:
 
 ```bash
