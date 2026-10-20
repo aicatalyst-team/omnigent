@@ -1,0 +1,122 @@
+# AutoPoC build variant of Dockerfile.ubi: only the stages the
+# runtime (server) target depends on. Drops the unused host and
+# node-runtime stages (host pulls tmux, absent from the UBI9 repos
+# in this build environment).
+# Build stages: web-builder -> builder -> server-builder -> runtime.
+
+# Omnigent UBI images: server (default target) + host (`--target host`).
+#
+# Red Hat Universal Base Image (UBI 9) variant of the standard Dockerfile,
+# for RHEL/OpenShift environments that require UBI-compliant containers.
+# Same two-target structure: `runtime` (server) and `host` (sandbox).
+#
+# Build (from repo root):
+#
+#   docker build -t omnigent-server:ubi \
+#                -f deploy/docker/Dockerfile.ubi .
+#
+#   docker build -t omnigent-host:ubi --target host \
+#                -f deploy/docker/Dockerfile.ubi .
+
+ARG PYTHON_VERSION=3.12
+ARG NODE_VERSION=22
+
+# ── Web UI builder ──────────────────────────────────────
+# Build-platform pinned like the standard Dockerfile's web-builder: the
+# bundle is arch-independent and the emulated arm64 web build has stalled.
+FROM --platform=$BUILDPLATFORM registry.access.redhat.com/ubi9/nodejs-${NODE_VERSION} AS web-builder
+ARG NPM_CONFIG_REGISTRY=
+ENV NPM_CONFIG_REGISTRY=${NPM_CONFIG_REGISTRY}
+
+USER 0
+WORKDIR /web
+
+# Workspace manifests + lockfile first so the install layer caches across pure
+# source edits. The electron package JSON is included so the root workspace is
+# structurally complete, but we --filter web to avoid downloading Electron.
+COPY pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY patches/ ./patches/
+COPY web/package.json ./web/
+COPY web/electron/package.json ./web/electron/
+
+RUN npm install -g pnpm@11.15.1
+RUN pnpm install --frozen-lockfile --filter web
+
+COPY web/ ./web/
+RUN pnpm --filter web run build
+
+# ── Python builder (shared: server + host) ──────────────
+FROM registry.access.redhat.com/ubi9/python-312 AS builder
+
+ARG PYPI_INDEX_URL=https://pypi.org/simple
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+USER 0
+
+RUN dnf install -y --nodocs gcc gcc-c++ make python3-devel \
+ && dnf clean all
+
+RUN pip install --index-url ${PYPI_INDEX_URL} --no-cache-dir uv
+
+WORKDIR /build
+
+COPY pyproject.toml setup.py ./
+COPY LICENSE NOTICE ./
+COPY sdks/ ./sdks/
+COPY omnigent/ ./omnigent/
+COPY examples/ ./examples/
+
+RUN python -m venv /opt/venv
+ENV VIRTUAL_ENV=/opt/venv \
+    PATH="/opt/venv/bin:${PATH}"
+
+RUN uv pip install --no-cache-dir --index-url ${PYPI_INDEX_URL} -e .
+
+# ── Server builder ──────────────────────────────────────
+FROM builder AS server-builder
+
+ARG PYPI_INDEX_URL=https://pypi.org/simple
+
+COPY --from=web-builder /web/omnigent/server/static/web-ui ./omnigent/server/static/web-ui
+RUN test -f ./omnigent/server/static/web-ui/index.html \
+    || (echo "ERROR: SPA bundle missing after web-builder stage — check the web build." && exit 1)
+
+RUN uv pip install --no-cache-dir --index-url ${PYPI_INDEX_URL} 'psycopg[binary]>=3.1,<4'
+
+# ── Server runtime (default target) ─────────────────────
+FROM registry.access.redhat.com/ubi9/python-312 AS runtime
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/opt/venv/bin:${PATH}"
+
+USER 0
+
+# curl-minimal and ca-certificates are preinstalled in UBI9;
+# installing full curl would conflict with curl-minimal.
+
+
+COPY --from=server-builder /opt/venv /opt/venv
+COPY --from=server-builder /build /build
+COPY deploy/docker/entrypoint.py /app/entrypoint.py
+
+WORKDIR /app
+
+RUN mkdir -p /data/artifacts \
+ && chown -R 1001:0 /data \
+ && chmod -R g=u /data
+
+ENV PORT=8000 \
+    HOST=0.0.0.0 \
+    ARTIFACT_DIR=/data/artifacts
+
+EXPOSE 8000
+
+USER 1001
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD curl -fsS "http://127.0.0.1:${PORT}/health" || exit 1
+
+CMD ["python", "/app/entrypoint.py"]
