@@ -2544,19 +2544,15 @@ def _openshell_launcher_factory(
         """Construct the OpenShell launcher (lazy SDK import inside)."""
         from omnigent.onboarding.sandboxes.openshell import OpenShellSandboxLauncher
 
-        kwargs: dict[str, object] = {
-            "image": image,
-            "env": env,
-            "cluster": cluster,
-            "workspace": workspace,
-        }
-        if providers:
-            kwargs["providers"] = providers
-        if node_selector is not None:
-            kwargs["node_selector"] = node_selector
-        if runtime_class is not None:
-            kwargs["runtime_class"] = runtime_class
-        return OpenShellSandboxLauncher(**kwargs)
+        return OpenShellSandboxLauncher(
+            image=image,
+            env=env,
+            cluster=cluster,
+            workspace=workspace,
+            providers=providers,
+            node_selector=node_selector,
+            runtime_class=runtime_class,
+        )
 
     return _build
 

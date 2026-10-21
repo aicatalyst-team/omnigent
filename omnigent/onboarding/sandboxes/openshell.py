@@ -86,7 +86,6 @@ operations (create, get, delete, wait_ready). Defaults to ``"default"``."""
 _DEFAULT_WORKSPACE: str = "default"
 
 
-
 # Upload chunk size. The gateway rejects a gRPC message whose decoded size
 # exceeds 1 MiB; stay well under it to leave room for framing overhead.
 _PUT_CHUNK_BYTES = 512 * 1024
