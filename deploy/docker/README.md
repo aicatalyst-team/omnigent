@@ -534,6 +534,83 @@ snapshot and take seconds). Override the ref with
 full provider guide (credentials, the free-tier egress relay, and
 security considerations).
 
+## OpenShell sandbox host (`Dockerfile.ubi --target host-openshell`)
+
+[`Dockerfile.ubi`](./Dockerfile.ubi) is the UBI 9 variant of the standard
+Dockerfile for RHEL/OpenShift environments that require UBI-based
+containers. Its default target builds the server, `--target host` builds
+the UBI host image (same baked omnigent install and harness CLIs as the
+standard host), and a third target, `host-openshell`, is purpose-built
+for [NVIDIA OpenShell](../openshell/README.md) sandboxes.
+
+`host-openshell` extends the UBI `host` target with the OpenShell sandbox
+contract:
+
+- a non-root **`sandbox` user** — OpenShell drops privileges to that
+  literal name and fails closed without it. It's a system account, and
+  `/sandbox` is group-writable (`sandbox:0` + `g=u`), because OpenShift
+  assigns an arbitrary UID with primary GID 0 at runtime (the numeric
+  UID shows as-is inside shells — there's no UID-to-name remap);
+- a **writable venv at `/sandbox/.venv`** instead of the base host's
+  `/opt/venv` — the baked egress policy leaves only `/sandbox` and
+  `/tmp` writable, so the launcher's wheel overlay (which reinstalls
+  your checkout's wheels into the venv at provision time) must land
+  there;
+- **`iproute`/`nftables`**, which OpenShell's supervisor uses to build
+  the per-sandbox network namespace;
+- a baked **`/etc/openshell/policy.yaml`** deny-by-default egress
+  allow-list;
+- the `opencode` CLI on top of the base host's `claude`/`codex`/`pi`/
+  `kiro-cli` set.
+
+One build detail worth knowing: `tmux` and `bubblewrap` are not in the
+unentitled UBI 9 repos, so the Dockerfile builds them from source (sha256
+pinned) in a CentOS Stream 9 `native-builder` stage and copies
+just the binaries into the host stages. CS9 shares UBI 9's glibc, so the
+binaries load cleanly — a newer-Fedora builder would not work.
+
+**The egress policy is deployment-specific.** The baked
+[`openshell/policy.yaml`](./openshell/policy.yaml) is a starting point:
+before building, edit it to allow your server URL (the managed host
+dials back over a WebSocket tunnel), your LLM provider hosts, and any
+tokenizer/asset hosts your harnesses fetch — see
+[Network egress policy](../openshell/README.md#network-egress-policy).
+A sandbox missing its server URL connects but never registers its runner.
+
+Build from the repo root on an amd64 Docker-capable machine, then push
+the result where the gateway's driver can pull it:
+
+```bash
+docker build -t omnigent-host-openshell:ubi --target host-openshell \
+             --platform linux/amd64 \
+             -f deploy/docker/Dockerfile.ubi .
+```
+
+Smoke-test the image locally before pushing — this exercises the same
+contract OpenShell's supervisor checks, plus the OpenShift arbitrary-UID
+case. Use a login shell (`-lc`): the venv PATH is set in `.bash_profile`,
+not in plain `bash -c`:
+
+```bash
+docker run --rm --user 1000670000:0 omnigent-host-openshell:ubi \
+  -lc 'id && touch /sandbox/probe && pip --version && command -v tmux bwrap ip nft'
+```
+
+Expected: `id` prints the numeric UID with gid 0 (a preceding `cannot
+find name for user ID` line is harmless), the `touch` succeeds, `pip`
+resolves into `/sandbox/.venv`, and all four binaries print paths.
+
+Then point Omnigent at the result with `OMNIGENT_OPENSHELL_HOST_IMAGE`
+(CLI-launched sandboxes) or `sandbox.openshell.image` (server-managed) —
+see [`deploy/openshell/README.md`](../openshell/README.md) for the full
+provider guide. The
+[`openshift-openshell` overlay](../kubernetes/overlays/openshift-openshell/)
+deploys an OpenShift server configured for this flow.
+
+`agy` is not baked into this target — add it with
+`EXTRA_HARNESS_CLIS=agy` at build time if the antigravity harness is
+needed.
+
 ## Related design docs
 
 - `designs/OIDC_AUTH.md` — full native OIDC design

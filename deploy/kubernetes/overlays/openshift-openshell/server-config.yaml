@@ -31,7 +31,7 @@ data:
         # Sandbox image built for OpenShell's non-root contract.
         # Build with: docker build -t omnigent-host-openshell:latest \
         #               -f deploy/docker/Dockerfile.openshell .
-        image: quay.io/aicatalyst/omnigent-host-openshell:v0.1.19
+        image: quay.io/aicatalyst/omnigent-host-openshell-ubi:latest
         # SERVER env var NAMES whose values are injected into sandboxes
         # at provision time — this is how LLM keys reach the sandbox.
         env:
